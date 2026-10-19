@@ -46,10 +46,32 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    task_queue_max_priority=10,
+    task_default_priority=5,
     task_queues=(
         Queue("webhook.retry", Exchange("webhook"), routing_key="webhook.retry", durable=True),
         Queue("webhook.dead", Exchange("webhook"), routing_key="webhook.dead", durable=True),
         Queue("index-shielded-notes", Exchange("shielded"), routing_key="shielded.index", durable=True),
+        # Issue #1262 — prioritized ZK proof-generation queues. Each queue
+        # has a dedicated worker pool (see docker-compose zk-high-worker /
+        # zk-standard-worker) so high-priority jobs see zero queue delay
+        # under normal load and standard jobs can never starve.
+        Queue(
+            "zk_high_priority",
+            Exchange("zk"),
+            routing_key="zk.high",
+            durable=True,
+            queue_arguments={"x-max-priority": 10},
+        ),
+        Queue(
+            "zk_standard",
+            Exchange("zk"),
+            routing_key="zk.standard",
+            durable=True,
+            queue_arguments={"x-max-priority": 10},
+        ),
     ),
     task_routes={
         "app.tasks.deliver_webhook_task": {
@@ -63,6 +85,14 @@ celery_app.conf.update(
         "app.tasks.index_shielded_notes_range": {
             "queue": "index-shielded-notes",
             "routing_key": "shielded.index",
+        },
+        "app.tasks.generate_zk_proof_high_priority": {
+            "queue": "zk_high_priority",
+            "routing_key": "zk.high",
+        },
+        "app.tasks.generate_zk_proof_standard": {
+            "queue": "zk_standard",
+            "routing_key": "zk.standard",
         },
     },
     beat_schedule={
