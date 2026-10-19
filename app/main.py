@@ -74,6 +74,12 @@ try:
 except ImportError:
     _HAS_STREAMING_ROUTER = False
 
+try:
+    from app.routers.zk_proofs import router as zk_proofs_router
+    _HAS_ZK_PROOFS_ROUTER = True
+except ImportError:
+    _HAS_ZK_PROOFS_ROUTER = False
+
 log = structlog.get_logger(__name__)
 
 
@@ -270,3 +276,6 @@ if _HAS_REBALANCING_ROUTER:
 
 if _HAS_STREAMING_ROUTER:
     app.include_router(streaming_router.router, prefix="/api")
+
+if _HAS_ZK_PROOFS_ROUTER:
+    app.include_router(zk_proofs_router, prefix="/api/v1")
